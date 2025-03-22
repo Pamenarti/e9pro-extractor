@@ -207,15 +207,144 @@ def analyze_firmware(firmware_file, output_dir):
     except Exception as e:
         print(f"Hata: {e}")
 
+def analyze_extracted_files(input_dir):
+    """Çıkarılan firmware dosyalarını inceler ve içerikleri hakkında bilgi verir"""
+    try:
+        print(f"Dizin içeriği inceleniyor: {input_dir}")
+        
+        if not os.path.exists(input_dir):
+            print(f"Hata: {input_dir} dizini bulunamadı!")
+            return
+            
+        # GZip dosyalarını ara
+        gzip_files = []
+        for file in os.listdir(input_dir):
+            if file.startswith("decompressed_gzip_"):
+                gzip_files.append(os.path.join(input_dir, file))
+        
+        if not gzip_files:
+            print("GZip dosyaları bulunamadı!")
+        else:
+            print(f"\nToplam {len(gzip_files)} GZip dosyası bulundu:")
+            
+            for gzip_file in gzip_files:
+                file_size = os.path.getsize(gzip_file)
+                print(f"\n[{os.path.basename(gzip_file)}] - {file_size} bytes")
+                
+                # Dosya türünü tespit etmeye çalış
+                try:
+                    with open(gzip_file, 'rb') as f:
+                        header = f.read(4096)  # İlk 4KB'ı oku
+                        
+                        # ELF dosyası mı?
+                        if header.startswith(b'\x7fELF'):
+                            print("  ✓ ELF çalıştırılabilir dosyası tespit edildi")
+                        
+                        # Kernel imajı mı?
+                        elif b'Linux version ' in header:
+                            version = re.search(rb'Linux version ([0-9\.\-a-z]+)', header)
+                            if version:
+                                print(f"  ✓ Linux Kernel imajı tespit edildi: {version.group(1).decode('utf-8', errors='replace')}")
+                            else:
+                                print("  ✓ Linux Kernel imajı tespit edildi")
+                        
+                        # HTML veya XML mı?
+                        elif b'<!DOCTYPE' in header or b'<html' in header:
+                            print("  ✓ HTML/XML içeriği tespit edildi")
+                        
+                        # Shell script?
+                        elif header.startswith(b'#!/bin/sh') or header.startswith(b'#!/bin/bash'):
+                            print("  ✓ Shell script tespit edildi")
+                        
+                        # Metin dosyası gibi görünüyor mu?
+                        elif b'\x00' not in header[:1000]:
+                            # İlk 5 satırı göster
+                            lines = header.split(b'\n')[:5]
+                            print("  ✓ Metin dosyası gibi görünüyor. İlk 5 satır:")
+                            for i, line in enumerate(lines):
+                                try:
+                                    print(f"    {i+1}: {line.decode('utf-8', errors='replace')}")
+                                except:
+                                    pass
+                        else:
+                            # İlk 32 byte'ı hexdump olarak göster
+                            print("  ✓ Binary veri. İlk 32 byte:")
+                            print("    " + ' '.join(f'{b:02x}' for b in header[:32]))
+                
+                # Bazı önemli kelimeleri ara
+                try:
+                    with open(gzip_file, 'rb') as f:
+                        content = f.read()
+                        
+                    keywords = [
+                        ('config', rb'[Cc][Oo][Nn][Ff][Ii][Gg]'), 
+                        ('password', rb'[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]'),
+                        ('username', rb'[Uu][Ss][Ee][Rr][Nn][Aa][Mm][Ee]'),
+                        ('api', rb'[Aa][Pp][Ii]'),
+                        ('miner', rb'[Mm][Ii][Nn][Ee][Rr]'),
+                        ('ethash', rb'[Ee][Tt][Hh][Aa][Ss][Hh]'),
+                        ('ethereum', rb'[Ee][Tt][Hh][Ee][Rr][Ee][Uu][Mm]'),
+                        ('crypto', rb'[Cc][Rr][Yy][Pp][Tt][Oo]')
+                    ]
+                    
+                    print("\n  Anahtar kelime taraması:")
+                    for name, pattern in keywords:
+                        matches = re.findall(pattern, content)
+                        if matches:
+                            print(f"    ✓ '{name}' kelimesi {len(matches)} kez bulundu")
+                except Exception as e:
+                    print(f"    Hata: {e}")
+        
+        # strings.txt dosyasını incele
+        strings_file = os.path.join(input_dir, "strings.txt")
+        if os.path.exists(strings_file):
+            print("\n[strings.txt] dosyasında önemli bilgiler:")
+            try:
+                interesting_patterns = {
+                    'IP Adresleri': r'\b(?:\d{1,3}\.){3}\d{1,3}\b',
+                    'URL': r'https?://[^\s"\']+',
+                    'Email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+                    'Versiyon': r'[Vv]ersion\s*[:=]?\s*[0-9.]+',
+                    'Tarih': r'\b\d{4}[/-]\d{1,2}[/-]\d{1,2}\b'
+                }
+                
+                with open(strings_file, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+                
+                for category, pattern in interesting_patterns.items():
+                    matches = set(re.findall(pattern, content))
+                    if matches:
+                        print(f"\n  {category}:")
+                        for match in list(matches)[:5]:  # En fazla 5 eşleşme göster
+                            print(f"    - {match}")
+                        if len(matches) > 5:
+                            print(f"    ... ve {len(matches)-5} daha")
+            except Exception as e:
+                print(f"  strings.txt incelenirken hata: {e}")
+        else:
+            print("\nstrings.txt dosyası bulunamadı")
+            
+        print("\nDetaylı inceleme için:")
+        print("1. Hex editör ile dosyaları açabilirsiniz (örn: HxD)")
+        print("2. Linux sistemde 'binwalk' ile analiz yapabilirsiniz")
+        print("3. 'file' komutu ile dosya türlerini tespit edebilirsiniz")
+        print("4. ELF dosyaları için 'readelf -a' komutu kullanabilirsiniz")
+        
+    except Exception as e:
+        print(f"Analiz sırasında hata: {e}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='BMU firmware dosyasını analiz et ve extract et')
     parser.add_argument('file', help='BMU firmware dosyası veya çıkarılmış binary dosya')
     parser.add_argument('-o', '--output', default='extracted', help='Çıktı dizini (varsayılan: ./extracted)')
     parser.add_argument('--firmware', action='store_true', help='Doğrudan firmware analizi yap')
+    parser.add_argument('--analyze-extracted', action='store_true', help='Çıkarılmış dosyaları analiz et')
     
     args = parser.parse_args()
     
-    if args.firmware:
+    if args.analyze_extracted:
+        analyze_extracted_files(args.file)
+    elif args.firmware:
         analyze_firmware(args.file, args.output)
     else:
         extract_bmu(args.file, args.output)

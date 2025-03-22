@@ -53,11 +53,48 @@ python bmu_extractor.py "g:\GithubProj\e9pro\Antminer-E9-Pro-ETHW&ETHF-release-2
 python bmu_extractor.py --firmware "G:\GithubProj\e9pro\extracted\firmware.bin" -o "G:\GithubProj\e9pro\extracted\firmware_contents"
 ```
 
-### Parametreler
+### Hızlı Başlangıç: Firmware.bin Dosyasını Extract Etme
 
-- `file`: BMU dosyası veya firmware binary dosyası
-- `-o, --output`: Çıktı dizini (varsayılan: `./extracted`)
-- `--firmware`: Dosyayı firmware olarak analiz et
+Eğer halihazırda `firmware.bin` dosyasını çıkardıysanız ve içeriğini incelemek istiyorsanız:
+
+```bash
+# Windows için:
+python bmu_extractor.py --firmware "G:\GithubProj\e9pro\extracted\firmware.bin" -o "G:\GithubProj\e9pro\extracted\firmware_contents"
+
+# Linux için:
+python3 bmu_extractor.py --firmware "/path/to/firmware.bin" -o "/path/to/output_directory"
+```
+
+Bu komut:
+1. Firmware dosyasını tarar
+2. Bilinen dosya sistemi imzalarını (SquashFS, JFFS2, GZip vb.) arar
+3. GZip, BZip2, XZ vb. sıkıştırılmış bölümleri açar
+4. Bulunan içerikleri belirtilen çıktı dizinine kaydeder
+5. Metin (string) içeriklerini çıkarır
+
+#### İçeriği Daha Detaylı İncelemek
+
+Çıkarılmış dosyaları daha detaylı incelemek için:
+
+```bash
+# Linux komutları:
+cd G:\GithubProj\e9pro\extracted\firmware_contents
+file decompressed_gzip_*
+binwalk decompressed_gzip_000049e0.bin
+strings decompressed_gzip_000049e0.bin | grep -i version
+```
+
+#### Binwalk ile Daha Detaylı Analiz
+
+Firmware dosyasını daha detaylı analiz etmek için binwalk kullanabilirsiniz:
+
+```bash
+# Binwalk ile dosyanın içeriğini göster
+binwalk "G:\GithubProj\e9pro\extracted\firmware.bin"
+
+# Binwalk ile dosyayı otomatik olarak extract et
+binwalk -e "G:\GithubProj\e9pro\extracted\firmware.bin"
+```
 
 ## Çıktılar
 
@@ -152,6 +189,89 @@ strings "G:\GithubProj\e9pro\extracted\firmware_contents\decompressed_gzip_00386
 ```
 
 GZip dosyaları genellikle sistem dosyaları, yapılandırmalar veya işletim sistemi bileşenlerini içerir. Bu decompressed dosyaları daha detaylı inceleyerek miner'ın çalışma mantığını anlayabilirsiniz.
+
+## Çıkarılmış Dosyaları İnceleme
+
+Firmware'den çıkarılmış dosyaları analiz etmek için aşağıdaki komutu kullanabilirsiniz:
+
+```bash
+# Windows için:
+python bmu_extractor.py --analyze-extracted "G:\GithubProj\e9pro\extracted\firmware_contents"
+
+# Linux için:
+python3 bmu_extractor.py --analyze-extracted "/path/to/extracted_folder"
+```
+
+Bu komut:
+1. Çıkarılan GZip dosyalarını bulur ve inceler
+2. Dosya türlerini tespit etmeye çalışır (ELF, Kernel, Script, vb.)
+3. Önemli anahtar kelimeleri arar (config, password, miner, vb.)
+4. strings.txt dosyasında IP adresleri, URL'ler, email'ler vb. bilgileri bulur
+
+### GZip Dosyalarını Manuel İnceleme
+
+E9 Pro firmware'inden çıkarılan iki GZip dosyası bulunmakta:
+
+1. `decompressed_gzip_000049e0.bin` - 0x000049e0 offsetinden çıkarılmış dosya
+2. `decompressed_gzip_00386a1c.bin` - 0x00386a1c offsetinden çıkarılmış dosya
+
+#### Windows'ta Dosyaları İnceleme:
+
+1. **7-Zip ile İnceleme**: GZip dosyalarını 7-Zip ile açarak içerikleri görebilirsiniz
+2. **HxD Hex Editor**: Binary dosyaları hex editör ile açarak byte seviyesinde inceleyebilirsiniz
+3. **Linux Subsystem**: Windows 10/11'de Linux alt sistemi kurarak Linux araçlarını kullanabilirsiniz
+
+#### Linux'ta Dosyaları İnceleme:
+
+```bash
+# Dosya türünü tespit etme
+file decompressed_gzip_000049e0.bin
+file decompressed_gzip_00386a1c.bin
+
+# Hexdump ile içeriği görüntüleme
+hexdump -C decompressed_gzip_000049e0.bin | head -30
+hexdump -C decompressed_gzip_00386a1c.bin | head -30
+
+# Metin içeriklerini listeleme
+strings decompressed_gzip_000049e0.bin | less
+strings decompressed_gzip_00386a1c.bin | less
+
+# ELF dosyalarının header bilgilerini görüntüleme
+readelf -h decompressed_gzip_000049e0.bin
+readelf -h decompressed_gzip_00386a1c.bin
+
+# Kernel imajı olup olmadığını kontrol etme
+strings decompressed_gzip_000049e0.bin | grep -i "linux version"
+strings decompressed_gzip_00386a1c.bin | grep -i "linux version"
+```
+
+### Yaygın Dosya Tipleri ve Nasıl İncelenir
+
+1. **Kernel imajı**: Genelde Linux çekirdeği, aşağıdaki komutlarla incelenebilir:
+   ```bash
+   binwalk -e decompressed_gzip_XXXXXXXX.bin
+   strings decompressed_gzip_XXXXXXXX.bin | grep -i "linux version"
+   ```
+
+2. **SquashFS/JFFS2 dosya sistemleri**: Cihazın dosya sistemi, aşağıdaki komutlarla çıkarılabilir:
+   ```bash
+   unsquashfs -d çıktı_klasörü squashfs_dosyası.bin
+   jefferson jffs2_dosyası.bin -d çıktı_klasörü
+   ```
+
+3. **ELF çalıştırılabilir dosyaları**: Miner yazılımı, çalıştırılabilir araçlar:
+   ```bash
+   file dosya.bin      # ELF dosyası olup olmadığını kontrol eder
+   readelf -a dosya.bin    # ELF header bilgilerini gösterir
+   strings dosya.bin | grep -i "version"  # Versiyon bilgisini arar
+   ```
+
+### Antminer E9 Pro İnceleme İpuçları
+
+- **`cgminer` veya `bmminer`**: Madencilik yazılımı, genellikle firmware içinde bulunur
+- **Config dosyaları**: `.conf` veya `.json` uzantılı yapılandırma dosyaları
+- **Web arayüzü**: HTML/JavaScript dosyaları, web ara yüzünü oluşturur
+- **init script'leri**: Başlangıç script'leri, genelde `/etc/init.d` veya `/etc/rc.d` altında
 
 ## Sorun Giderme
 
