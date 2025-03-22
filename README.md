@@ -93,3 +93,60 @@ Antminer E9 Pro gibi cihazlarda Xilinx işletim sistemi kullanılır:
 - FPGA yapılandırması için özel dosyalar içerir
 - Boot süreci U-Boot üzerinden gerçekleşir
 - Madencilik yazılımı genellikle cgminer veya türevleridir
+
+## Firmware Yükleme Hata Ayıklama
+
+Firmware yükleme işleminde hata alıyorsanız, aşağıdaki adımları izleyin:
+
+### 1. Cihaz Seri Konsoluna Bağlanma
+
+Seri konsoldan boot ve firmware yükleme hatalarını görmek için:
+
+```bash
+# USB-Serial dönüştürücüyü bağlayın ve port adını bulun
+ls -l /dev/ttyUSB* /dev/ttyACM*
+
+# Konsol bağlantısını başlatın
+./debug-console.sh /dev/ttyUSB0
+```
+
+### 2. Basitleştirilmiş Test Firmware'i Oluşturma
+
+Daha basit bir firmware ile test yaparak hatayı daraltın:
+
+```bash
+# İmzasız ve basitleştirilmiş test firmware'i oluştur  
+./extract_cpio.sh debug
+```
+
+Bu komut 3 farklı test dosyası oluşturur:
+- `debug_cpio.cpio` - Ham CPIO arşivi
+- `debug_bmu.bmu` - Başlıksız ve imzasız BMU
+- `debug_with_header.bmu` - Başlıklı ama imzasız BMU
+
+### 3. Firmware Doğrulama
+
+Oluşturulan firmware'in formatını doğrulayın:
+
+```bash
+# Firmware formatını doğrula
+./verify-firmware.sh minerfs_signed.bmu
+```
+
+### 4. Yaygın Sorunlar
+
+| Problem | Olası Neden | Çözüm |
+|---------|-------------|-------|
+| "Invalid signature" | İmzalama anahtarı yanlış | Cihazın geliştirici modunu aktif edin veya üreticiden özel anahtar isteyin |
+| "File too large" | Firmware dosyası çok büyük | Daha az dosya içeren basitleştirilmiş firmware oluşturun |
+| "Invalid header" | Başlık formatı hatalı | Orijinal firmware başlığını kopyalayarak yeni oluşturun |
+| "Incompatible version" | Cihaz modeli uyumsuz | Cihaz modelinizi doğrulayın ve başlık bilgilerini güncelleyin |
+
+### 5. Geliştirici Modunu Aktifleştirme
+
+Bazı Antminer cihazlarında imza doğrulamasını atlamak için geliştirici modu aktifleştirilebilir:
+
+1. Web arayüzünde oturum açın
+2. Sistem > Gelişmiş ayarlar yolunu izleyin 
+3. "Geliştirici Modu" seçeneğini aktifleştirin
+4. Cihazı yeniden başlatın

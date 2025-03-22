@@ -241,6 +241,44 @@ elif [ "$1" == "keys" ]; then
     
     echo -e "\nPublic Key İçeriği:"
     cat "$PUBKEY_FILE"
+
+elif [ "$1" == "debug" ]; then
+    # Debug için firmware'i basitleştirilmiş olarak hazırlama
+    echo "DEBUG: Basitleştirilmiş BMU oluşturuluyor (imza olmadan)"
+    
+    # Hedef dizinden dosya sayısını kontrol et
+    if [ -d "$TARGET_DIR" ]; then
+        NUM_FILES=$(find "$TARGET_DIR" -type f | wc -l)
+        echo "DEBUG: Hedef dizinde $NUM_FILES dosya bulunuyor"
+    else
+        echo "HATA: Hedef dizin bulunamadı: $TARGET_DIR"
+        exit 1
+    fi
+    
+    # CPIO oluşturma
+    if [ -d "$TARGET_DIR" ]; then
+        cd "$TARGET_DIR" || exit 1
+        find . -depth -print | cpio -H newc -o > "../debug_cpio.cpio"
+        cd ..
+        echo "DEBUG: CPIO dosyası oluşturuldu: debug_cpio.cpio"
+        
+        # Başlık olmadan basit BMU oluştur
+        cp "debug_cpio.cpio" "debug_bmu.bmu"
+        echo "DEBUG: İmzasız ve başlıksız BMU oluşturuldu: debug_bmu.bmu"
+        
+        # Orijinal başlık ile BMU oluştur
+        if [ -f "$ORIG_FIRMWARE" ]; then
+            head -c 16 "$ORIG_FIRMWARE" > "debug_header.bin"
+            cat "debug_header.bin" "debug_cpio.cpio" > "debug_with_header.bmu"
+            echo "DEBUG: Başlıklı ama imzasız BMU oluşturuldu: debug_with_header.bmu"
+            rm -f "debug_header.bin"
+        fi
+    fi
+    
+    echo ""
+    echo "DEBUG dosyaları oluşturuldu: "
+    ls -lh debug_*.bmu debug_*.cpio
+
 else
     echo "Geçersiz parametre! Kullanım:"
     echo "  $0           # arşivi çıkar"
@@ -249,6 +287,7 @@ else
     echo "  $0 info      # CPIO dosyası hakkında bilgi göster"
     echo "  $0 analyze   # Firmware'i detaylı analiz et"
     echo "  $0 keys      # Yeni private ve public key oluştur"
+    echo "  $0 debug     # Debug için basitleştirilmiş firmware oluştur"
 fi
 
 echo "=== İşlem tamamlandı: $(date) ==="
