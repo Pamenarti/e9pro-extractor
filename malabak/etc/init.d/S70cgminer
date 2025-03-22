@@ -1,0 +1,99 @@
+#!/bin/sh
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/bin/godminer
+NAME=godminer
+DESC="Godminer daemon"
+
+set -e
+test -x "$DAEMON" || exit 0
+
+# RED LED: GPIO943
+if [ ! -d /sys/class/gpio/gpio943 ]; then
+    echo 943 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio943/direction
+    echo 0 > /sys/class/gpio/gpio943/value
+fi
+
+# GREEN LED: GPIO944
+if [ ! -d /sys/class/gpio/gpio944 ]; then
+    echo 944 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio944/direction
+    echo 0 > /sys/class/gpio/gpio944/value
+fi
+
+# LCD: D0 : CS 29+906
+if [ ! -d /sys/class/gpio/gpio935 ]; then
+    echo 935 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio935/direction
+    echo 0 > /sys/class/gpio/gpio935/value
+fi
+
+# LCD: D1 : SID 30+906
+if [ ! -d /sys/class/gpio/gpio936 ]; then
+    echo 936 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio936/direction
+    echo 0 > /sys/class/gpio/gpio936/value
+fi
+
+# LCD: D2 : SCLK 31+906
+if [ ! -d /sys/class/gpio/gpio937 ]; then
+    echo 937 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio937/direction
+    echo 0 > /sys/class/gpio/gpio937/value
+fi
+
+# LCD: D3 : RESET 36+906
+if [ ! -d /sys/class/gpio/gpio942 ]; then
+    echo 942 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio942/direction
+    echo 0 > /sys/class/gpio/gpio942/value
+fi
+
+do_start() {
+    sleep 5s
+    if [ -z  "`lsmod | grep bitmain_axi`"  ]; then
+        echo "No bitmain_axi.ko"
+        insmod /lib/modules/bitmain_axi.ko
+        memory_size=`awk '/MemTotal/{total=$2}END{print total}' /proc/meminfo`
+        shared_size=`awk '/CmaTotal/{total=$2}END{print total}' /proc/meminfo`
+        echo "BM2280 Zynq7020 control board has usable memory size = $memory_size KB"
+        echo "                             fpga shared memory size = $shared_size KB"
+    else
+        echo "Have bitmain-axi"
+    fi
+
+    PARAMS="--version /usr/bin/compile_time"
+    echo PARAMS = $PARAMS
+
+    start-stop-daemon -b --start --exec $DAEMON -- $PARAMS --config /config/cgminer.conf --api-remote
+}
+
+do_stop() {
+    start-stop-daemon --stop --exec $DAEMON || true
+}
+case "$1" in
+  start)
+        echo -n "Starting $DESC: "
+        do_start
+        echo "$NAME."
+        ;;
+  stop)
+        echo -n "Stopping $DESC: "
+        do_stop
+        echo "$NAME."
+        ;;
+  restart|force-reload)
+        echo -n "Restarting $DESC: "
+        do_stop
+        do_start
+        echo "$NAME."
+        ;;
+  *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|restart|force-reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

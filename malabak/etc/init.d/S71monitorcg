@@ -1,0 +1,39 @@
+#!/bin/sh
+#set -x
+function do_start()
+{
+    check_inter="20s"
+    while true; do
+        sleep $check_inter
+        #date
+        u="$(ps | grep godminer-update | grep -v 'grep godminer-update')"
+        if [ -z "$u" ] ; then
+            a="$(ps | grep godminer | grep -v 'grep godminer')"
+            if [ -z "$a" ] ; then
+                /etc/init.d/S70cgminer restart
+            fi
+        fi
+        # c="$(ps | grep cron | grep -v 'grep cron')"
+        # if [ -z "$c" ] ; then
+        #     cron
+        # fi
+    done
+}
+
+function do_stop()
+{
+    exit 0
+}
+
+case "$1" in
+    start|"")
+                do_start &
+        ;;
+    stop)
+                do_stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac

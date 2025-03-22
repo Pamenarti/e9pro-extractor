@@ -295,3 +295,40 @@ pip install zlib tarfile
 ## Lisans
 
 Bu araç özgürce kullanılabilir ve değiştirilebilir.
+
+# E9Pro Firmware İşlemleri
+
+## Kullanım
+
+### CPIO Arşivini Çıkarma
+```bash
+./extract_cpio.sh extract
+```
+
+### CPIO Arşivini Yeniden Oluşturma ve BMU Formatına Dönüştürme
+```bash
+./extract_cpio.sh create
+```
+
+### CPIO/BMU Dosya Bilgisi Görüntüleme
+```bash
+./extract_cpio.sh info
+```
+
+## Hata Ayıklama
+1. Cihaza yükleme sonrası tepki alınamıyorsa:
+   - `cpio_operation.log` dosyasını inceleyiniz
+   - Orijinal ve yeni dosya formatlarını karşılaştırınız: `./extract_cpio.sh info`
+
+2. U-Boot Fit Image Gereksinimleri:
+   - Dosyanın Zynq7020 Linux-4.19 uyumlu olması gerekiyor
+   - Public key ile imzalanmalı
+   - Orijinal dosyayı fitImage formatını görmek için `dumpimage` ile inceleyebilirsiniz: 
+     ```
+     dumpimage -l /home/agrotest2/e9pro-extractor/extracted/_firmware.bin.extracted/minerfs.cpio
+     ```
+
+3. Olası çözümler:
+   - Orijinal CPIO arşivini çıkarın ve tekrar oluşturun
+   - Formatın uyumlu olduğundan emin olun (newc format)
+   - `dtc` (Device Tree Compiler) ve `mkimage` araçlarını yükleyin
