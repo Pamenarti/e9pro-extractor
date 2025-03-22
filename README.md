@@ -298,42 +298,53 @@ Bu araç özgürce kullanılabilir ve değiştirilebilir.
 
 # E9Pro Firmware İşlemleri
 
-## Tespit Edilen Sorunlar
+## Yenilikler
+- Private key otomatik oluşturma ve imzalama eklendi
 
-1. **İmzalama Sorunu:**
-   - İmzalama için private key gereklidir.
-   - Sadece public key ile imzalama yapılamaz.
-   - Cihaz üreticisinden private key istenebilir veya imzalama doğrulamasını devre dışı bırakan bir yöntem araştırılabilir.
+## Nasıl Kullanılır
 
-2. **FIT Format Sorunu:**
-   - U-Boot fitImage formatı için `mkimage` komutu gereklidir.
-   - Sisteminizde yüklü değilse: `sudo apt-get install u-boot-tools`
+### 1. Yeni Anahtar Oluşturma
+```bash
+./extract_cpio.sh keys
+```
 
-3. **Firmware Başlık Yapısı:**
-   - Orijinal firmware'in özel bir başlık yapısı vardır ("E9-Pro" tanıtıcısı ve tarih).
-   - Özellikle ilk 16 byte önemlidir ve yeni oluşturulan dosyada korunmalıdır.
-
-## Kullanım
-
-### CPIO Arşivini Çıkarma
+### 2. CPIO Arşivini Çıkarma
 ```bash
 ./extract_cpio.sh extract
 ```
 
-### CPIO Arşivini Yeniden Oluşturma ve BMU Formatına Dönüştürme
+### 3. CPIO Arşivini Yeniden Oluşturma ve BMU Formatına Dönüştürme
 ```bash
 ./extract_cpio.sh create
 ```
+Bu komut:
+- CPIO arşivini oluşturur
+- Orijinal firmware başlığını ekler
+- U-Boot fitImage formatına dönüştürür
+- Private key ile imzalar
 
-### CPIO/BMU Dosya Bilgisi Görüntüleme
+### 4. CPIO/BMU Dosya Bilgisi Görüntüleme
 ```bash
 ./extract_cpio.sh info
 ```
 
-### Firmware Detaylı Analiz
+### 5. Firmware Detaylı Analiz
 ```bash
 ./extract_cpio.sh analyze
 ```
+
+## İmzalama Formatı
+
+İmzalama formatı şu şekildedir:
+- "SIGN" başlık bilgisi (4 byte)
+- İmza boyutu (8 byte hex)
+- İmza verisi
+- Orijinal dosya içeriği
+
+## Güvenlik Notları
+- Private key oluşturuldu, yalnızca kendi sisteminizde test amaçlı kullanın
+- İmzalı firmware dosyası, üreticinin anahtarıyla imzalanmadığından üretici doğrulamasından geçmeyebilir
+- Bazı cihazlar geliştirici modunda imza kontrolünü atlayabilir
 
 ## Firmware Başlığı
 

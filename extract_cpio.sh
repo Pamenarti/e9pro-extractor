@@ -18,23 +18,33 @@ OUTPUT_CPIO="minerfs_new.cpio"
 OUTPUT_BMU="minerfs_new.bmu"
 OUTPUT_SIGNED="minerfs_signed.bmu"
 
-# Public key dosyası
+# Anahtar dosyaları
+PRIVKEY_FILE="/home/agrotest2/e9pro-extractor/private.key"
 PUBKEY_FILE="/home/agrotest2/e9pro-extractor/pubkey.pem"
 
-# Public key'i kaydet
-if [ ! -f "$PUBKEY_FILE" ]; then
-    cat > "$PUBKEY_FILE" << 'EOF'
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4nK2btpK1JYkkB9t4Krs
-NUuxTdGxABFkEP8dWAaf6F+wjZGi8EjVI3ISWEaijXQ0KdY1jP4ijyeEVNIP4mm+
-Xt55rTQIuaV2r7U7tko8ZJqlRiS88Ls5ZFs6LYzeledAdL9IPQK4iNFah04JQU9t
-P/cPsSZ62C7QhFEGT19DrKcjJ9HP8/424JRt+6suIjkiQPdeFkHoxTVwF+QGiQ04
-uUbg2WS+aTVTyJv0pAMPxe1URo9ang3J4X75wOqJl4/9X+W/UDknz5g67zyBzBtU
-/6RQQBzZWXgsMp70Gwc55kpUX9TfvEA0sdURD+fms8fVGbzOn23P/A8InVr7Vxbr
-SQIDAQAB
------END PUBLIC KEY-----
-EOF
-    echo "Public key dosyası oluşturuldu: $PUBKEY_FILE"
+# Private key ve public key oluştur
+generate_keys() {
+    echo "Private ve public key oluşturuluyor..."
+    
+    # RSA private key oluştur
+    openssl genrsa -out "$PRIVKEY_FILE" 2048
+    
+    # Private key'den public key çıkar
+    openssl rsa -in "$PRIVKEY_FILE" -pubout -out "$PUBKEY_FILE"
+    
+    echo "Anahtarlar oluşturuldu:"
+    echo "Private key: $PRIVKEY_FILE"
+    echo "Public key: $PUBKEY_FILE"
+    
+    # Güvenlik için private key için izinleri kısıtla
+    chmod 600 "$PRIVKEY_FILE"
+}
+
+# Eğer private key yoksa oluştur
+if [ ! -f "$PRIVKEY_FILE" ]; then
+    generate_keys
+else
+    echo "Mevcut anahtarlar kullanılacak"
 fi
 
 # İşlem seçimi
@@ -98,16 +108,44 @@ elif [ "$1" == "create" ]; then
         echo "u-boot-tools paketini yüklemeyi deneyin: sudo apt-get install u-boot-tools"
     fi
     
-    # NOT: İmzalama için private key gerekli, public key kullanılamaz
-    echo "NOT: İmzalama işlemi için private key gereklidir. Public key ile imzalama yapılamaz."
+    # Private key ile dosyayı imzalama
+    if [ -f "$PRIVKEY_FILE" ]; then
+        echo "BMU dosyası özel anahtar ile imzalanıyor"
+        
+        # İmzalama için geçici dosya
+        SIGNATURE_FILE="${OUTPUT_BMU}.sig"
+        
+        # Dosyayı imzala (sha256 hash ile)
+        openssl dgst -sha256 -sign "$PRIVKEY_FILE" -out "$SIGNATURE_FILE" "$OUTPUT_BMU"
+        
+        if [ -f "$SIGNATURE_FILE" ]; then
+            # İmza dosyasının boyutunu al
+            SIG_SIZE=$(stat -c%s "$SIGNATURE_FILE")
+            echo "İmza boyutu: $SIG_SIZE bayt"
+            
+            # İmza boyutunu dosya başına ekle ve imza + dosyayı birleştir
+            printf "SIGN%08x" "$SIG_SIZE" > "$OUTPUT_SIGNED.header"
+            cat "$OUTPUT_SIGNED.header" "$SIGNATURE_FILE" "$OUTPUT_BMU" > "$OUTPUT_SIGNED"
+            
+            echo "İmzalı BMU dosyası oluşturuldu: $OUTPUT_SIGNED"
+            rm -f "$SIGNATURE_FILE" "$OUTPUT_SIGNED.header"
+        else
+            echo "UYARI: İmza dosyası oluşturulamadı"
+            cp "$OUTPUT_BMU" "$OUTPUT_SIGNED"
+        fi
+    else
+        echo "UYARI: Private key bulunamadı, imzalama yapılamadı"
+        cp "$OUTPUT_BMU" "$OUTPUT_SIGNED"
+    fi
     
     # Dosya büyüklükleri hakkında bilgi
     echo "Dosya büyüklükleri:"
-    ls -lh "$OUTPUT_CPIO" "$OUTPUT_BMU" 2>/dev/null
+    ls -lh "$OUTPUT_CPIO" "$OUTPUT_BMU" "$OUTPUT_SIGNED" 2>/dev/null
     
     echo "İşlem tamamlandı."
     echo "CPIO arşivi: $OUTPUT_CPIO"
     echo "BMU dosyası: $OUTPUT_BMU"
+    echo "İmzalı BMU dosyası: $OUTPUT_SIGNED"
 
 elif [ "$1" == "info" ]; then
     # Orijinal CPIO dosyası hakkında bilgi edinme
@@ -164,6 +202,17 @@ elif [ "$1" == "analyze" ]; then
         hexdump -C "$CPIO_ARCHIVE" | head -20
     fi
 
+elif [ "$1" == "keys" ]; then
+    # Yeni veya mevcut anahtarları görüntüle
+    if [ -f "$PRIVKEY_FILE" ] && [ -f "$PUBKEY_FILE" ]; then
+        echo "Mevcut anahtarlar siliniyor ve yeniden oluşturuluyor..."
+        rm -f "$PRIVKEY_FILE" "$PUBKEY_FILE"
+    fi
+    
+    generate_keys
+    
+    echo -e "\nPublic Key İçeriği:"
+    cat "$PUBKEY_FILE"
 else
     echo "Geçersiz parametre! Kullanım:"
     echo "  $0           # arşivi çıkar"
@@ -171,6 +220,7 @@ else
     echo "  $0 create    # yeni arşiv oluştur ve .bmu yap"
     echo "  $0 info      # CPIO dosyası hakkında bilgi göster"
     echo "  $0 analyze   # Firmware'i detaylı analiz et"
+    echo "  $0 keys      # Yeni private ve public key oluştur"
 fi
 
 echo "=== İşlem tamamlandı: $(date) ==="
