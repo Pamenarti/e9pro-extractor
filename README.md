@@ -101,6 +101,58 @@ Bu komut:
 3. Bulunan bölümleri çıkarır
 4. Metin içeriklerini ve versiyon bilgilerini toplar
 
+### 3. E9-Pro Firmware Analiz Örneği
+
+Aşağıda gerçek bir Antminer E9-Pro firmware analiz örneği gösterilmiştir:
+
+```
+python3 bmu_extractor.py --firmware "G:\GithubProj\e9pro\extracted\firmware.bin" -o "G:\GithubProj\e9pro\extracted\firmware_contents"
+Firmware Dosya Boyutu: 11136304 bytes
+
+Firmware Başlığı (ilk 128 byte):
+00000000  26 01 45 39 2d 50 72 6f 00 00 01 02 00 32 30 32   |&.E9-Pro.....202|
+00000010  34 30 33 32 32 00 01 c3 2d 2d 2d 2d 2d 42 45 47   |40322...-----BEG|
+00000020  49 4e 20 50 55 42 4c 49 43 20 4b 45 59 2d 2d 2d   |IN PUBLIC KEY---|
+00000030  2d 2d 0a 4d 49 49 42 49 6a 41 4e 42 67 6b 71 68   |--.MIIBIjANBgkqh|
+...
+
+Tanımlanan Dosya Sistemi/Format İmzaları:
+0x000049e0: GZip compressed imzası bulundu
+Sıkıştırılmış veri G:\GithubProj\e9pro\extracted\firmware_contents\compressed_at_000049e0.bin dosyasına kaydedildi.
+GZip sıkıştırması açıldı: G:\GithubProj\e9pro\extracted\firmware_contents\decompressed_gzip_000049e0.bin
+0x00386a1c: GZip compressed imzası bulundu
+Sıkıştırılmış veri G:\GithubProj\e9pro\extracted\firmware_contents\compressed_at_00386a1c.bin dosyasına kaydedildi.
+GZip sıkıştırması açıldı: G:\GithubProj\e9pro\extracted\firmware_contents\decompressed_gzip_00386a1c.bin
+
+Metin içerikleri G:\GithubProj\e9pro\extracted\firmware_contents\strings.txt dosyasına kaydedildi.
+```
+
+#### E9-Pro Firmware Yapısı
+
+Analiz sonucunda, E9-Pro firmware dosyasının şu yapıda olduğu görülmektedir:
+
+1. **Header Bölümü**: İlk bytes'lar model bilgisini içeriyor - "E9-Pro" ve tarih "20240322"
+2. **İmza Bölümü**: Firmware'in imzasını doğrulamak için kullanılan PUBLIC KEY
+3. **GZip Bölümleri**: 
+   - 0x000049e0 offsetinde ilk GZip sıkıştırılmış veri
+   - 0x00386a1c offsetinde ikinci GZip sıkıştırılmış veri
+
+#### GZip İçeriğini İncelemek
+
+Çıkarılan GZip dosyalarının içeriğini incelemek için:
+
+```bash
+# İlk GZip içeriği için
+hexdump -C "G:\GithubProj\e9pro\extracted\firmware_contents\decompressed_gzip_000049e0.bin" | head -20
+strings "G:\GithubProj\e9pro\extracted\firmware_contents\decompressed_gzip_000049e0.bin" | head -30
+
+# İkinci GZip içeriği için
+hexdump -C "G:\GithubProj\e9pro\extracted\firmware_contents\decompressed_gzip_00386a1c.bin" | head -20
+strings "G:\GithubProj\e9pro\extracted\firmware_contents\decompressed_gzip_00386a1c.bin" | head -30
+```
+
+GZip dosyaları genellikle sistem dosyaları, yapılandırmalar veya işletim sistemi bileşenlerini içerir. Bu decompressed dosyaları daha detaylı inceleyerek miner'ın çalışma mantığını anlayabilirsiniz.
+
 ## Sorun Giderme
 
 ### 1. "Bilinen dosya sistemi imzası bulunamadı" Hatası
