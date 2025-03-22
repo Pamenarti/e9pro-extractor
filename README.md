@@ -176,3 +176,43 @@ Bazı Antminer cihazlarında imza doğrulamasını atlamak için geliştirici mo
 2. Sistem > Gelişmiş ayarlar yolunu izleyin 
 3. "Geliştirici Modu" seçeneğini aktifleştirin
 4. Cihazı yeniden başlatın
+
+## Python BMU Aracı
+
+`bmu.py` analiz sonuçlarına dayanarak, BMU formatını daha doğru oluşturmak için yeni bir Python aracı ekledik:
+
+```bash
+# BMU dosyası oluşturma
+python3 create_bmu.py create minerfs_new.cpio custom_bmu.bmu --private-key private.key
+
+# BMU dosyası analiz etme
+python3 create_bmu.py analyze minerfs_signed.bmu
+```
+
+### BMU Format Detayları
+
+BMU formatı şu bileşenlerden oluşur:
+
+1. **Başlık (16 byte)**
+   - Magic Byte (0x26)
+   - Miner Tipi (E9-Pro)
+   - Tarih (YYYYMMDD)
+   - Diğer meta veriler
+
+2. **Public Key Bölümü**
+   - PEM formatında public key
+
+3. **CPIO Dosya Sistemi**
+   - Linux dosya sistemi içeriği
+
+4. **İmza Bölümü** (dosya sonunda)
+   - "SIGN" başlığı
+   - İmza boyutu (4 byte)
+   - SHA256 ile oluşturulan imza
+
+### Python İle Oluşturma Gereksinimleri
+
+Python aracını kullanmak için:
+```bash
+pip install pycryptodome
+```
