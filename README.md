@@ -1,0 +1,125 @@
+# BMU Firmware Extractor ve Analiz Aracı
+
+Bu araç, Antminer E9 Pro ve benzeri cihazlar için BMU (Bitminer Firmware Update) dosyalarını analiz etmek ve içeriğini çıkarmak amacıyla geliştirilmiştir.
+
+## Özellikler
+
+- BMU firmware dosyalarını analiz etme
+- Binary formatındaki firmware dosyalarını çözümleme
+- Dosya sistemi imzalarını (SquashFS, JFFS2, vb.) tespit etme
+- Sıkıştırılmış kısımları açma (GZip, BZip2, XZ)
+- Metin içeriklerini (string) çıkarma
+- Versiyon bilgilerini arama
+
+## Gereksinimler
+
+- Python 3.6 veya daha yeni bir sürüm
+- Linux için ek araçlar (isteğe bağlı):
+  - `unsquashfs` - SquashFS dosya sistemlerini açmak için
+  - `jefferson` - JFFS2 dosya sistemlerini açmak için
+  - `binwalk` - Daha detaylı firmware analizi için
+
+## Kurulum
+
+1. Scripti bilgisayarınıza indirin:
+   ```bash
+   git clone https://github.com/yourusername/bmu-extractor.git
+   cd bmu-extractor
+   ```
+
+2. İsteğe bağlı ek araçları kurma:
+   ```bash
+   # SquashFS araçları
+   sudo apt-get install squashfs-tools
+   
+   # Jefferson (JFFS2 için)
+   pip install jefferson
+   
+   # Binwalk
+   pip install binwalk
+   ```
+
+## Kullanım
+
+### 1. BMU Dosyasını Analiz Etme ve Çıkarma
+
+```bash
+python bmu_extractor.py "g:\GithubProj\e9pro\Antminer-E9-Pro-ETHW&ETHF-release-202403221450 (2).bmu" -o "g:\GithubProj\e9pro\extracted"
+```
+
+### 2. Firmware Dosyasını Analiz Etme
+
+```bash
+python bmu_extractor.py --firmware "G:\GithubProj\e9pro\extracted\firmware.bin" -o "G:\GithubProj\e9pro\extracted\firmware_contents"
+```
+
+### Parametreler
+
+- `file`: BMU dosyası veya firmware binary dosyası
+- `-o, --output`: Çıktı dizini (varsayılan: `./extracted`)
+- `--firmware`: Dosyayı firmware olarak analiz et
+
+## Çıktılar
+
+### BMU Dosyası Analizi
+
+- `firmware.bin`: Çıkarılan ana firmware dosyası
+- `extracted.tar`: Sıkıştırılmış TAR arşivi (bulunursa)
+- `extracted_raw`: Raw zlib sıkıştırması açılmış veri (bulunursa)
+
+### Firmware Dosyası Analizi
+
+- `squashfs_at_XXXXXXXX.bin`: Tespit edilen SquashFS bölümleri
+- `jffs2_at_XXXXXXXX.bin`: Tespit edilen JFFS2 bölümleri
+- `compressed_at_XXXXXXXX.bin`: Tespit edilen sıkıştırılmış bölümler
+- `decompressed_gzip_XXXXXXXX.bin`: GZip sıkıştırması açılmış bölümler
+- `strings.txt`: Firmware içinden çıkarılan metin içerikler
+
+## Örnekler
+
+### 1. BMU Dosyasını Analiz Etme
+
+```bash
+python bmu_extractor.py "firmware.bmu" -o "çıktı_klasörü"
+```
+
+Bu komut:
+1. BMU dosyasını analiz eder
+2. Dosya başlığını görüntüler
+3. Sıkıştırma formatını tespit etmeye çalışır
+4. İçeriği çıkarır ve `firmware.bin` dosyasını oluşturur
+
+### 2. Çıkarılan Firmware'i Analiz Etme
+
+```bash
+python bmu_extractor.py --firmware "çıktı_klasörü/firmware.bin" -o "firmware_içerik"
+```
+
+Bu komut:
+1. Firmware binary'sini analiz eder
+2. Dosya sistemi imzalarını arar (SquashFS, JFFS2, vb.)
+3. Bulunan bölümleri çıkarır
+4. Metin içeriklerini ve versiyon bilgilerini toplar
+
+## Sorun Giderme
+
+### 1. "Bilinen dosya sistemi imzası bulunamadı" Hatası
+
+Bu durumda firmware özel bir formatta olabilir. Binwalk aracını kullanarak daha detaylı analiz yapabilirsiniz:
+
+```bash
+binwalk firmware.bin
+binwalk -e firmware.bin
+```
+
+### 2. Python Modülü Hataları
+
+Eğer modül bulunamadı hataları alıyorsanız, eksik modülleri yükleyin:
+
+```bash
+pip install zlib tarfile
+```
+
+## Lisans
+
+Bu araç özgürce kullanılabilir ve değiştirilebilir.
