@@ -791,3 +791,47 @@ U-Boot fitImage Zynq7020 Linux-4.19
 u-boot,dm-pre-reloc
 === İşlem tamamlandı: Sat Mar 22 02:43:07 PM UTC 2025 ===
 Log dosyasına bakın: cpio_operation.log
+=== İşlem başladı: Sat Mar 22 02:56:04 PM UTC 2025 ===
+Mevcut anahtarlar kullanılacak
+Tüm oluşturulan dosyaların doğrulanması:
+
+--- CPIO Dosyası Doğrulama ---
+minerfs_new.cpio: ASCII cpio archive (SVR4 with no CRC)
+CPIO içeriği:
+tmp
+sbin/halt
+sbin/udhcpc
+sbin/poweroff
+sbin/mkfs.fat
+sbin/ifconfig
+sbin/id2mac
+sbin/killall5
+sbin/shutdown
+sbin/syslogd
+
+--- BIN Dosyası Doğrulama ---
+minerfs_new.bin: Device Tree Blob version 17, size=16876660, boot CPU=0, string block size=116, DT structure block size=16875512
+Başlık analizi:
+00000000  d0 0d fe ed 01 01 84 74  00 00 00 38 01 01 80 30  |.......t...8...0|
+00000010  00 00 00 28 00 00 00 11  00 00 00 02 00 00 00 00  |...(............|
+00000020
+✗ UYARI: E9-Pro başlığı eksik!
+
+--- İmzalı BMU Dosyası Doğrulama ---
+minerfs_signed.bmu: data
+Başlık analizi:
+00000000  53 49 47 4e 30 30 30 30  30 31 30 30 33 d5 fa bb  |SIGN000001003...|
+00000010  78 85 4e cf 02 62 04 7a  2b 53 93 8b 63 24 8f 3b  |x.N..b.z+S..c$.;|
+00000020
+✗ UYARI: E9-Pro başlığı eksik!
+Dosya sonu (imza) analizi:
+00000000  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+*
+00000110  00 00 00 00 00 00 00 00                           |........|
+00000118
+✗ UYARI: Dosya sonunda imza bilgisi bulunamadı!
+
+Tüm dosyaların doğrulaması tamamlandı.
+Detaylı doğrulama için: ./verify-firmware.sh minerfs_signed.bmu
+=== İşlem tamamlandı: Sat Mar 22 02:56:04 PM UTC 2025 ===
+Log dosyasına bakın: cpio_operation.log
