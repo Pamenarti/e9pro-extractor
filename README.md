@@ -298,6 +298,21 @@ Bu araç özgürce kullanılabilir ve değiştirilebilir.
 
 # E9Pro Firmware İşlemleri
 
+## Tespit Edilen Sorunlar
+
+1. **İmzalama Sorunu:**
+   - İmzalama için private key gereklidir.
+   - Sadece public key ile imzalama yapılamaz.
+   - Cihaz üreticisinden private key istenebilir veya imzalama doğrulamasını devre dışı bırakan bir yöntem araştırılabilir.
+
+2. **FIT Format Sorunu:**
+   - U-Boot fitImage formatı için `mkimage` komutu gereklidir.
+   - Sisteminizde yüklü değilse: `sudo apt-get install u-boot-tools`
+
+3. **Firmware Başlık Yapısı:**
+   - Orijinal firmware'in özel bir başlık yapısı vardır ("E9-Pro" tanıtıcısı ve tarih).
+   - Özellikle ilk 16 byte önemlidir ve yeni oluşturulan dosyada korunmalıdır.
+
 ## Kullanım
 
 ### CPIO Arşivini Çıkarma
@@ -315,20 +330,23 @@ Bu araç özgürce kullanılabilir ve değiştirilebilir.
 ./extract_cpio.sh info
 ```
 
-## Hata Ayıklama
-1. Cihaza yükleme sonrası tepki alınamıyorsa:
-   - `cpio_operation.log` dosyasını inceleyiniz
-   - Orijinal ve yeni dosya formatlarını karşılaştırınız: `./extract_cpio.sh info`
+### Firmware Detaylı Analiz
+```bash
+./extract_cpio.sh analyze
+```
 
-2. U-Boot Fit Image Gereksinimleri:
-   - Dosyanın Zynq7020 Linux-4.19 uyumlu olması gerekiyor
-   - Public key ile imzalanmalı
-   - Orijinal dosyayı fitImage formatını görmek için `dumpimage` ile inceleyebilirsiniz: 
-     ```
-     dumpimage -l /home/agrotest2/e9pro-extractor/extracted/_firmware.bin.extracted/minerfs.cpio
-     ```
+## Firmware Başlığı
 
-3. Olası çözümler:
-   - Orijinal CPIO arşivini çıkarın ve tekrar oluşturun
-   - Formatın uyumlu olduğundan emin olun (newc format)
-   - `dtc` (Device Tree Compiler) ve `mkimage` araçlarını yükleyin
+E9-Pro firmware başlığının formatı:
+- İlk 8 byte: E9-Pro tanıtıcısı
+- 10-18 byte: Tarih (YYYYMMDD formatında)
+
+## Öneriler
+
+1. **Cihaza Yüklemeden Önce:**
+   - Oluşturulan BMU dosyasının başlık yapısını orijinaliyle karşılaştırın
+   - İmzalanamayan dosya cihaza yüklenebilir ancak cihazın güvenlik denetimlerini geçemeyebilir
+
+2. **İmzalama Sorunu Çözümü İçin:**
+   - Cihaz üreticisinden private key isteyin
+   - Alternatif olarak, cihazın geliştirici moduna geçirilip geçirilemeyeceğini araştırın
