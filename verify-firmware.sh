@@ -62,15 +62,31 @@ echo ""
 
 # İmza kontrolü
 echo "4. İmza Analizi:"
+# İlk imza başlığını kontrol et - başta olmamalı
 if hexdump -C -n 16 "$FIRMWARE" | grep -q "SIGN"; then
-    echo "   İmza başlığı tespit edildi"
-    # İmza boyutunu çıkarma
-    SIG_SIZE=$(hexdump -C -n 12 "$FIRMWARE" | grep -o "SIGN[0-9a-f]\{8\}" | cut -c 5-)
-    if [ -n "$SIG_SIZE" ]; then
-        echo "   İmza boyutu: 0x$SIG_SIZE"
-    fi
+    echo "   UYARI: İmza başlığı dosyanın başında - bu yanlış format olabilir!"
 else
-    echo "   İmza başlığı bulunamadı"
+    # Dosyanın sonunda imza arama
+    FILESIZE=$(stat -c%s "$FIRMWARE")
+    END_OFFSET=$(($FILESIZE - 300))  # İmza yaklaşık son 300 byte'ta olmalı
+    
+    if [ $END_OFFSET -gt 0 ]; then
+        if dd if="$FIRMWARE" bs=1 skip=$END_OFFSET 2>/dev/null | grep -q "SIGN"; then
+            echo "   İmza bilgisi dosyanın sonunda bulundu (doğru format)"
+            
+            # İmza boyutunu çıkarma
+            SIG_HEADER=$(dd if="$FIRMWARE" bs=1 skip=$END_OFFSET count=12 2>/dev/null | hexdump -ve '1/1 "%.2x"')
+            if [[ "$SIG_HEADER" =~ 5349474e([0-9a-f]{8}) ]]; then
+                SIG_SIZE_HEX="${BASH_REMATCH[1]}"
+                SIG_SIZE=$((16#$SIG_SIZE_HEX))
+                echo "   İmza boyutu: 0x$SIG_SIZE_HEX ($SIG_SIZE bayt)"
+            fi
+        else
+            echo "   İmza bilgisi bulunamadı"
+        fi
+    else
+        echo "   Dosya çok küçük, imza alanı incelenemedi"
+    fi
 fi
 echo ""
 
@@ -134,3 +150,5 @@ echo "ÖNERİLER:"
 echo "1. ./extract_cpio.sh debug ile basit bir test firmware'i oluşturun"
 echo "2. Cihaz seri konsola bağlanıp hata mesajlarını incelemek için debug-console.sh kullanın"
 echo "3. Orijinal firmware'i analiz edin: ./extract_cpio.sh analyze"
+echo "4. Tüm oluşturulan dosyaları doğrulayın: ./extract_cpio.sh verify-all"
+echo "5. İmzalama sistemini doğrulayın: Dosyanın başında E9-Pro başlığı, sonunda imza olmalı"

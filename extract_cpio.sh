@@ -122,13 +122,13 @@ elif [ "$1" == "create" ]; then
     
     echo "BIN dosyası başarıyla oluşturuldu: $OUTPUT_BIN"
     
-    # 3. ADIM: BIN dosyasını imzalayarak BMU oluşturma
+    # 3. ADIM: BMU Dosyası Oluşturma ve İmzalama
     echo ""
     echo "3. ADIM: BMU Dosyası Oluşturma ve İmzalama"
     echo "------------------------------"
     echo "BIN dosyası BMU formatına dönüştürülüyor: $OUTPUT_BMU"
     
-    # Önce BIN dosyasını BMU formatına dönüştür
+    # Önce BIN dosyasını BMU formatına dönüştür (doğrudan kopyala)
     cp "$OUTPUT_BIN" "$OUTPUT_BMU"
     
     # Private key ile dosyayı imzalama
@@ -146,12 +146,13 @@ elif [ "$1" == "create" ]; then
             SIG_SIZE=$(stat -c%s "$SIGNATURE_FILE")
             echo "İmza boyutu: $SIG_SIZE bayt"
             
-            # İmza boyutunu dosya başına ekle ve imza + dosyayı birleştir
-            printf "SIGN%08x" "$SIG_SIZE" > "$OUTPUT_SIGNED.header"
-            cat "$OUTPUT_SIGNED.header" "$SIGNATURE_FILE" "$OUTPUT_BMU" > "$OUTPUT_SIGNED"
+            # DÜZELTİLDİ: İmza başlığı ve imzayı dosyanın SONUNA ekle
+            printf "SIGN%08x" "$SIG_SIZE" > "${OUTPUT_SIGNED}.footer"
+            # BMU dosyasını kopyala ve imza bilgilerini SONUNA ekle
+            cat "$OUTPUT_BMU" "${OUTPUT_SIGNED}.footer" "$SIGNATURE_FILE" > "$OUTPUT_SIGNED"
             
             echo "İmzalı BMU dosyası oluşturuldu: $OUTPUT_SIGNED"
-            rm -f "$SIGNATURE_FILE" "$OUTPUT_SIGNED.header"
+            rm -f "$SIGNATURE_FILE" "${OUTPUT_SIGNED}.footer"
         else
             echo "UYARI: İmza dosyası oluşturulamadı"
             cp "$OUTPUT_BMU" "$OUTPUT_SIGNED"
@@ -279,6 +280,59 @@ elif [ "$1" == "debug" ]; then
     echo "DEBUG dosyaları oluşturuldu: "
     ls -lh debug_*.bmu debug_*.cpio
 
+elif [ "$1" == "verify-all" ]; then
+    # Tüm oluşturulan dosyaları doğrula
+    echo "Tüm oluşturulan dosyaların doğrulanması:"
+    
+    if [ -f "$OUTPUT_CPIO" ]; then
+        echo -e "\n--- CPIO Dosyası Doğrulama ---"
+        file "$OUTPUT_CPIO"
+        echo "CPIO içeriği:"
+        cpio -it < "$OUTPUT_CPIO" | head -n 10
+    fi
+    
+    if [ -f "$OUTPUT_BIN" ]; then
+        echo -e "\n--- BIN Dosyası Doğrulama ---"
+        file "$OUTPUT_BIN"
+        echo "Başlık analizi:"
+        hexdump -C -n 32 "$OUTPUT_BIN"
+        # E9-Pro başlık kontrolü
+        if hexdump -C -n 16 "$OUTPUT_BIN" | grep -q "E9-Pro"; then
+            echo "✓ Geçerli E9-Pro başlığı var"
+        else
+            echo "✗ UYARI: E9-Pro başlığı eksik!"
+        fi
+    fi
+    
+    if [ -f "$OUTPUT_SIGNED" ]; then
+        echo -e "\n--- İmzalı BMU Dosyası Doğrulama ---"
+        file "$OUTPUT_SIGNED"
+        echo "Başlık analizi:"
+        hexdump -C -n 32 "$OUTPUT_SIGNED"
+        # E9-Pro başlık kontrolü
+        if hexdump -C -n 16 "$OUTPUT_SIGNED" | grep -q "E9-Pro"; then
+            echo "✓ Geçerli E9-Pro başlığı var"
+        else
+            echo "✗ UYARI: E9-Pro başlığı eksik!"
+        fi
+        
+        # İmza kontrolü - dosyanın sonunda olmalı
+        echo "Dosya sonu (imza) analizi:"
+        FILESIZE=$(stat -c%s "$OUTPUT_SIGNED")
+        TAIL_POS=$(($FILESIZE - 280)) # İmza boyutu + imza başlığı yaklaşık
+        if [ $TAIL_POS -gt 0 ]; then
+            dd if="$OUTPUT_SIGNED" bs=1 skip=$TAIL_POS 2>/dev/null | hexdump -C | head -8
+            if dd if="$OUTPUT_SIGNED" bs=1 skip=$TAIL_POS count=4 2>/dev/null | grep -q "SIGN"; then
+                echo "✓ İmza bilgisi dosya sonunda bulundu"
+            else
+                echo "✗ UYARI: Dosya sonunda imza bilgisi bulunamadı!"
+            fi
+        fi
+    fi
+    
+    echo -e "\nTüm dosyaların doğrulaması tamamlandı."
+    echo "Detaylı doğrulama için: ./verify-firmware.sh $OUTPUT_SIGNED"
+    
 else
     echo "Geçersiz parametre! Kullanım:"
     echo "  $0           # arşivi çıkar"
@@ -288,6 +342,7 @@ else
     echo "  $0 analyze   # Firmware'i detaylı analiz et"
     echo "  $0 keys      # Yeni private ve public key oluştur"
     echo "  $0 debug     # Debug için basitleştirilmiş firmware oluştur"
+    echo "  $0 verify-all # Tüm oluşturulan dosyaları doğrula"
 fi
 
 echo "=== İşlem tamamlandı: $(date) ==="

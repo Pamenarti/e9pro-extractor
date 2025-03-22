@@ -62,7 +62,33 @@ Xilinx tabanlı cihazlar için firmware yapısı şu şekildedir:
    - "SIGN" tanımlayıcısı (4 byte)
    - İmza boyutu (8 byte hex)
    - SHA256 imza verisi
-   
+
+## İmzalama Formatı Değişikliği
+
+**Önemli Güncelleme**: Firmware imzalama formatı değiştirildi.
+
+Önceki format (HATALI):
+```
+SIGN + İmza Boyutu + İmza + BMU İçeriği
+```
+
+Yeni format (DOĞRU):
+```
+E9-Pro Başlığı + BMU İçeriği + SIGN + İmza Boyutu + İmza
+```
+
+Bu değişiklik, imzayı dosyanın sonuna taşıyarak E9-Pro başlığının dosyanın başında kalmasını sağlar. Bu, cihazın doğru şekilde firmware'i tanıması için gereklidir.
+
+### Oluşturulan Dosyaları Doğrulama
+
+Tüm oluşturulan dosyaları doğrulamak için:
+
+```bash
+./extract_cpio.sh verify-all
+```
+
+Bu komut, CPIO arşivini, BIN dosyasını ve imzalı BMU dosyasını inceleyerek doğru bir formatta olup olmadıklarını kontrol eder.
+
 ## Gereksinimler
 
 - Linux işletim sistemi
