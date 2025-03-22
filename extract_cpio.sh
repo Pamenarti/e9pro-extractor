@@ -11,10 +11,11 @@ CPIO_ARCHIVE="/home/agrotest2/e9pro-extractor/extracted/_firmware.bin.extracted/
 ORIG_FIRMWARE="/home/agrotest2/e9pro-extractor/extracted/firmware.bin"
 
 # Hedef klasör
-TARGET_DIR="malabak"
+TARGET_DIR="/home/agrotest2/e9pro-extractor/malabak"
 
 # Çıktı dosyaları
 OUTPUT_CPIO="minerfs_new.cpio"
+OUTPUT_BIN="minerfs_new.bin"
 OUTPUT_BMU="minerfs_new.bmu"
 OUTPUT_SIGNED="minerfs_signed.bmu"
 
@@ -63,6 +64,8 @@ if [ "$1" == "extract" ] || [ -z "$1" ]; then
 
 elif [ "$1" == "create" ]; then
     # Düzenlenen dosyaları .cpio olarak arşivle
+    echo "1. ADIM: CPIO Arşivi Oluşturma"
+    echo "------------------------------"
     echo "Dosyalar arşivleniyor: $OUTPUT_CPIO"
     
     # malabak klasörüne git
@@ -75,38 +78,58 @@ elif [ "$1" == "create" ]; then
     # Ana dizine dön
     cd ..
     
+    echo "CPIO arşivi başarıyla oluşturuldu: $OUTPUT_CPIO"
+    
+    # 2. ADIM: CPIO arşivini BIN formatına dönüştürme
+    echo ""
+    echo "2. ADIM: BIN Dosyası Oluşturma"
+    echo "------------------------------"
+    echo "CPIO arşivi BIN dosyasına dönüştürülüyor: $OUTPUT_BIN"
+    
     # Orijinal firmware başlığını analiz et ve kullan
     if [ -f "$ORIG_FIRMWARE" ]; then
         echo "Orijinal firmware başlığı analiz ediliyor"
         # E9-Pro başlığını çek (ilk 16 byte)
-        head -c 16 "$ORIG_FIRMWARE" > "${OUTPUT_BMU}.header"
+        head -c 16 "$ORIG_FIRMWARE" > "${OUTPUT_BIN}.header"
         
         # Şu anki tarihi başlıkta güncelle (YYYYMMDD formatı)
         CURR_DATE=$(date +"%Y%m%d")
-        printf "%s" "$CURR_DATE" | dd of="${OUTPUT_BMU}.header" bs=1 seek=10 count=8 conv=notrunc
+        printf "%s" "$CURR_DATE" | dd of="${OUTPUT_BIN}.header" bs=1 seek=10 count=8 conv=notrunc
         
         # Başlığı ve CPIO içeriğini birleştir
         echo "E9-Pro başlığı ekleniyor"
-        cat "${OUTPUT_BMU}.header" "$OUTPUT_CPIO" > "$OUTPUT_BMU"
-        rm -f "${OUTPUT_BMU}.header"
+        cat "${OUTPUT_BIN}.header" "$OUTPUT_CPIO" > "$OUTPUT_BIN"
+        rm -f "${OUTPUT_BIN}.header"
     else
-        echo "Orijinal firmware bulunamadı, başlık eklenemiyor"
-        cp "$OUTPUT_CPIO" "$OUTPUT_BMU"
+        echo "Orijinal firmware bulunamadı, BIN dosyası doğrudan CPIO'dan oluşturuluyor"
+        cp "$OUTPUT_CPIO" "$OUTPUT_BIN"
     fi
     
     # BMU dosyasını FIT formatına dönüştürme 
     if command -v mkimage &> /dev/null; then
         echo "U-Boot fitImage formatına dönüştürülüyor"
-        mkimage -f auto -A arm -O linux -T filesystem -C none -d "$OUTPUT_BMU" "${OUTPUT_BMU}.fit" || \
+        mkimage -f auto -A arm -O linux -T filesystem -C none -d "$OUTPUT_BIN" "${OUTPUT_BIN}.fit" || \
             echo "UYARI: FIT imaj dönüşümü başarısız oldu, devam ediliyor"
         
-        if [ -f "${OUTPUT_BMU}.fit" ]; then
-            mv "${OUTPUT_BMU}.fit" "$OUTPUT_BMU"
+        if [ -f "${OUTPUT_BIN}.fit" ]; then
+            mv "${OUTPUT_BIN}.fit" "$OUTPUT_BIN"
+            echo "BIN dosyası FIT formatında güncellendi"
         fi
     else
         echo "UYARI: mkimage komutu bulunamadı, FIT formatına dönüştürülemedi"
         echo "u-boot-tools paketini yüklemeyi deneyin: sudo apt-get install u-boot-tools"
     fi
+    
+    echo "BIN dosyası başarıyla oluşturuldu: $OUTPUT_BIN"
+    
+    # 3. ADIM: BIN dosyasını imzalayarak BMU oluşturma
+    echo ""
+    echo "3. ADIM: BMU Dosyası Oluşturma ve İmzalama"
+    echo "------------------------------"
+    echo "BIN dosyası BMU formatına dönüştürülüyor: $OUTPUT_BMU"
+    
+    # Önce BIN dosyasını BMU formatına dönüştür
+    cp "$OUTPUT_BIN" "$OUTPUT_BMU"
     
     # Private key ile dosyayı imzalama
     if [ -f "$PRIVKEY_FILE" ]; then
@@ -139,13 +162,18 @@ elif [ "$1" == "create" ]; then
     fi
     
     # Dosya büyüklükleri hakkında bilgi
-    echo "Dosya büyüklükleri:"
-    ls -lh "$OUTPUT_CPIO" "$OUTPUT_BMU" "$OUTPUT_SIGNED" 2>/dev/null
-    
-    echo "İşlem tamamlandı."
+    echo ""
+    echo "Oluşturulan Dosyalar:"
+    echo "------------------------------"
     echo "CPIO arşivi: $OUTPUT_CPIO"
+    echo "BIN dosyası: $OUTPUT_BIN"
     echo "BMU dosyası: $OUTPUT_BMU"
     echo "İmzalı BMU dosyası: $OUTPUT_SIGNED"
+    
+    ls -lh "$OUTPUT_CPIO" "$OUTPUT_BIN" "$OUTPUT_BMU" "$OUTPUT_SIGNED" 2>/dev/null
+    
+    echo ""
+    echo "İşlem tamamlandı. İmzalı BMU dosyası cihaza yüklenmeye hazır: $OUTPUT_SIGNED"
 
 elif [ "$1" == "info" ]; then
     # Orijinal CPIO dosyası hakkında bilgi edinme
